@@ -7,6 +7,7 @@ A minimal Node.js server that accepts images from an ESP32-CAM and forwards them
 - `POST /api/vision/upload`: multipart/form-data with field `image`
 - `POST /api/vision/base64`: JSON body `{ image_base64, mime?, prompt? }`
 - `GET /health`: health check
+- `GET /test`: browser page to upload a local image and see the response
 
 ## Requirements
 - Node.js 18.17+
@@ -14,6 +15,10 @@ A minimal Node.js server that accepts images from an ESP32-CAM and forwards them
 
 ## Setup
 1. Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
+   - Optional tuning for concise replies:
+     - `VISION_REPLY_STYLE` (default: "Respond in one short sentence (max 15 words).")
+     - `VISION_DEFAULT_PROMPT` (default: "Describe this image.")
+     - `VISION_MAX_TOKENS` (default: 60)
 2. Install deps and run:
 
 ```powershell
@@ -31,6 +36,7 @@ Below are simple examples in Arduino-style pseudocode. Adjust to your actual WiF
 String server = "http://<your-pc-ip>:3000/api/vision/raw";
 
 HTTPClient http;
+http.setReuse(false);
 http.begin(server);
 http.addHeader("Content-Type", "image/jpeg");
 int httpCode = http.POST((uint8_t*)fb->buf, fb->len);

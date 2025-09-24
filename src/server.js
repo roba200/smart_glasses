@@ -19,6 +19,19 @@ function getOpenAI() {
   return new OpenAI({ apiKey });
 }
 
+const replyStyle = process.env.VISION_REPLY_STYLE || 'Respond in one short sentence (max 15 words).';
+const defaultPrompt = process.env.VISION_DEFAULT_PROMPT || 'Describe this image.';
+const maxTokens = Number.parseInt(process.env.VISION_MAX_TOKENS || '60', 10);
+
+function buildMessages(promptText, dataUrl) {
+  const textPart = { type: 'text', text: promptText };
+  const imagePart = { type: 'image_url', image_url: { url: dataUrl } };
+  return [
+    { role: 'system', content: replyStyle },
+    { role: 'user', content: [textPart, imagePart] },
+  ];
+}
+
 // Health
 app.get('/health', (_req, res) => {
   res.json({ ok: true, model: visionModel });
@@ -73,17 +86,11 @@ app.post('/api/vision/upload', async (req, res) => {
       const dataUrl = `data:${fileMimetype};base64,${base64}`;
 
       const openai = getOpenAI();
+      const prompt = (req.query?.prompt && String(req.query.prompt)) || defaultPrompt;
       const completion = await openai.chat.completions.create({
         model: visionModel,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: 'Describe this image.' },
-              { type: 'image_url', image_url: { url: dataUrl } },
-            ],
-          },
-        ],
+        max_tokens: maxTokens,
+        messages: buildMessages(prompt, dataUrl),
       });
 
       const text = completion.choices?.[0]?.message?.content ?? '';
@@ -115,17 +122,11 @@ app.post('/api/vision/raw', async (req, res) => {
     const dataUrl = `data:${ct};base64,${base64}`;
 
     const openai = getOpenAI();
+    const prompt = (req.query?.prompt && String(req.query.prompt)) || defaultPrompt;
     const completion = await openai.chat.completions.create({
       model: visionModel,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Describe this image.' },
-            { type: 'image_url', image_url: { url: dataUrl } },
-          ],
-        },
-      ],
+      max_tokens: maxTokens,
+      messages: buildMessages(prompt, dataUrl),
     });
 
     const text = completion.choices?.[0]?.message?.content ?? '';
@@ -145,23 +146,17 @@ app.post('/api/vision/raw', async (req, res) => {
 // }
 app.post('/api/vision/base64', async (req, res) => {
   try {
-    const { image_base64, mime = 'image/jpeg', prompt = 'Describe this image.' } = req.body || {};
+    const { image_base64, mime = 'image/jpeg', prompt } = req.body || {};
     if (!image_base64) return res.status(400).json({ error: 'image_base64 required' });
 
     const dataUrl = `data:${mime};base64,${image_base64}`;
 
     const openai = getOpenAI();
+    const userPrompt = prompt || defaultPrompt;
     const completion = await openai.chat.completions.create({
       model: visionModel,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: dataUrl } },
-          ],
-        },
-      ],
+      max_tokens: maxTokens,
+      messages: buildMessages(userPrompt, dataUrl),
     });
 
     const text = completion.choices?.[0]?.message?.content ?? '';
