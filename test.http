@@ -1,0 +1,30 @@
+### Health
+GET http://localhost:3000/health
+
+### Vision: base64 JSON (replace <BASE64>)
+POST http://localhost:3000/api/vision/base64
+Content-Type: application/json
+
+{
+	"image_base64": "<BASE64>",
+	"mime": "image/jpeg",
+	"prompt": "Describe this image"
+}
+
+### Vision: multipart upload (requires VS Code REST Client: @image refers to a file path)
+POST http://localhost:3000/api/vision/upload
+Content-Type: multipart/form-data; boundary=MyBoundary
+
+--MyBoundary
+Content-Disposition: form-data; name="image"; filename="sample.jpg"
+Content-Type: image/jpeg
+
+@c:/path/to/sample.jpg
+--MyBoundary--
+
+### Vision: raw JPEG (curl example below)
+# No REST Client direct raw body include, use curl:
+# curl -X POST "http://localhost:3000/api/vision/raw" ^
+#   -H "Content-Type: image/jpeg" ^
+#   --data-binary @c:/path/to/sample.jpg
+

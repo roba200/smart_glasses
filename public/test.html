@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vision Test</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; max-width: 720px; }
+    .row { margin-bottom: 1rem; }
+    textarea { width: 100%; height: 100px; }
+    img { max-width: 100%; height: auto; display: block; margin-top: .5rem; }
+    .muted { color: #666; }
+    button { padding: .5rem 1rem; }
+    .out { white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; padding: .75rem; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>OpenAI Vision Test</h2>
+
+    <div class="row">
+      <label>Prompt</label>
+      <input id="prompt" type="text" value="Describe this image." style="width:100%" />
+    </div>
+
+    <div class="row">
+      <label>Choose image</label>
+      <input id="file" type="file" accept="image/*" />
+      <img id="preview" alt="preview" />
+    </div>
+
+    <div class="row">
+      <button id="send">Send to Vision</button>
+      <span id="status" class="muted"></span>
+    </div>
+
+    <div class="row">
+      <label>Response</label>
+      <div id="resp" class="out"></div>
+    </div>
+
+    <p class="muted">This page calls <code>/api/vision/base64</code> on this server.</p>
+  </div>
+
+  <script>
+    const q = (s)=>document.querySelector(s);
+    const fileEl = q('#file');
+    const btn = q('#send');
+    const respEl = q('#resp');
+    const statusEl = q('#status');
+    const preview = q('#preview');
+    const promptEl = q('#prompt');
+
+    fileEl.addEventListener('change', () => {
+      const f = fileEl.files?.[0];
+      if (f) preview.src = URL.createObjectURL(f);
+    });
+
+    btn.addEventListener('click', async () => {
+      try {
+        const f = fileEl.files?.[0];
+        const prompt = promptEl.value || 'Describe this image.';
+        if (!f) { alert('Choose an image first'); return; }
+
+        statusEl.textContent = 'Encoding image…';
+        const b64 = await toBase64(f);
+
+        statusEl.textContent = 'Calling server…';
+        const res = await fetch('/api/vision/base64', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_base64: b64, mime: f.type || 'image/jpeg', prompt })
+        });
+
+        const data = await res.json();
+        statusEl.textContent = res.ok ? 'Done' : 'Error';
+        respEl.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        statusEl.textContent = 'Error';
+        respEl.textContent = String(e);
+      }
+    });
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          // Strip potential data URL prefix if present
+          const base64 = String(result).split(',').pop();
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+  </script>
+</body>
+</html>
