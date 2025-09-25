@@ -22,6 +22,7 @@ function getOpenAI() {
 const replyStyle = process.env.VISION_REPLY_STYLE || 'Respond in one short sentence (max 15 words).';
 const defaultPrompt = process.env.VISION_DEFAULT_PROMPT || 'Describe this image.';
 const maxTokens = Number.parseInt(process.env.VISION_MAX_TOKENS || '60', 10);
+const ttsModel = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
 
 function buildMessages(promptText, dataUrl) {
   const textPart = { type: 'text', text: promptText };
@@ -164,6 +165,38 @@ app.post('/api/vision/base64', async (req, res) => {
   } catch (err) {
     console.error(err);
     const msg = err?.message?.includes('OPENAI_API_KEY') ? 'Server missing OpenAI API key' : 'Vision processing failed';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// Route 4: Text-to-Speech
+// Body: { text: string, voice?: string, format?: 'wav' | 'mp3' | 'flac' | 'pcm' }
+// Returns audio in requested format (default wav). For ESP32, wav is simplest.
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text, voice = 'alloy', format = 'wav' } = req.body || {};
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'text is required' });
+    }
+
+    const openai = getOpenAI();
+    const ttsResp = await openai.audio.speech.create({
+      model: ttsModel,
+      voice,
+      input: text,
+      format,
+    });
+
+    const arrayBuffer = await ttsResp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = format === 'wav' ? 'audio/wav' : (format === 'mp3' ? 'audio/mpeg' : 'application/octet-stream');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Connection', 'close');
+    return res.status(200).send(buffer);
+  } catch (err) {
+    console.error(err);
+    const msg = err?.message?.includes('OPENAI_API_KEY') ? 'Server missing OpenAI API key' : 'TTS failed';
     res.status(500).json({ error: msg });
   }
 });

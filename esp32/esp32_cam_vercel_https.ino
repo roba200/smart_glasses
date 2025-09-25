@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <time.h>
 
 // ====== WiFi ======
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
@@ -25,12 +26,53 @@ const char* HEALTH_PATH = "/health";     // optional warm-up
 // Copy the top-level issuer certificate (root) PEM into ROOT_CA exactly between BEGIN/END.
 static const char* ROOT_CA = R"CA(
 -----BEGIN CERTIFICATE-----
-<PASTE_CORRECT_ROOT_CA_PEM_HERE>
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )CA";
 
 // Set to 1 to disable certificate validation (testing only)
-#define USE_INSECURE_TLS 1
+#define USE_INSECURE_TLS 0
+static bool ensureTimeSynced() {
+  static bool synced = false;
+  if (synced) return true;
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
+  const unsigned long maxWait = 15000;
+  unsigned long start = millis();
+  time_t now;
+  while ((now = time(nullptr)) < 1609459200 && millis() - start < maxWait) {
+    delay(200);
+  }
+  if (now >= 1609459200) { synced = true; return true; }
+  return false;
+}
 
 // ====== Camera Pins (AI Thinker) ======
 #define PWDN_GPIO_NUM     32
@@ -51,6 +93,10 @@ static const char* ROOT_CA = R"CA(
 #define PCLK_GPIO_NUM     22
 
 const unsigned long CAPTURE_INTERVAL_MS = 8000;
+
+// Reduce payload size for serverless reliability
+#define CAM_FRAME_SIZE     FRAMESIZE_QVGA   // Try FRAMESIZE_QQVGA if needed
+#define CAM_JPEG_QUALITY   18               // 10..30 (higher = smaller file)
 
 bool ensureWifi() {
   if (WiFi.status() == WL_CONNECTED) return true;
@@ -96,12 +142,12 @@ bool initCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size = FRAMESIZE_VGA; // adjust if payload too large
-    config.jpeg_quality = 12;
+    config.frame_size = CAM_FRAME_SIZE;
+    config.jpeg_quality = CAM_JPEG_QUALITY;
     config.fb_count = 2;
   } else {
-    config.frame_size = FRAMESIZE_QVGA;
-    config.jpeg_quality = 15;
+    config.frame_size = CAM_FRAME_SIZE;
+    config.jpeg_quality = CAM_JPEG_QUALITY;
     config.fb_count = 1;
   }
 
@@ -203,8 +249,22 @@ bool postRawJpeg(camera_fb_t* fb, WiFiClientSecure& client) {
     delay(1);
   }
 
-  // Read response
+  // Read response and parse HTTP status line
+  int httpStatus = -1;
   unsigned long start = millis();
+  // First line: HTTP/1.1 200 OK
+  String statusLine;
+  while (direct.connected() && !direct.available() && millis() - start < 5000) delay(5);
+  if (direct.available()) {
+    statusLine = direct.readStringUntil('\n');
+    Serial.print(statusLine);
+    int sp1 = statusLine.indexOf(' ');
+    if (sp1 > 0 && statusLine.length() >= sp1 + 4) {
+      httpStatus = statusLine.substring(sp1 + 1, sp1 + 4).toInt();
+    }
+  }
+  // Print rest (headers/body)
+  start = millis();
   while (direct.connected() && millis() - start < 10000) {
     while (direct.available()) {
       String line = direct.readStringUntil('\n');
@@ -214,7 +274,7 @@ bool postRawJpeg(camera_fb_t* fb, WiFiClientSecure& client) {
     delay(5);
   }
   direct.stop();
-  return true; // assume success if connection handled
+  return (httpStatus > 0 && httpStatus < 400);
 }
 
 unsigned long lastShot = 0;
@@ -225,6 +285,9 @@ void setup() {
 
   if (!ensureWifi()) {
     Serial.println("WiFi not ready; retrying in loop...");
+  }
+  if (!ensureTimeSynced()) {
+    Serial.println("Warning: time not synced; TLS may fail");
   }
   if (!initCamera()) {
     Serial.println("Camera failed; rebooting in 5s");
@@ -245,6 +308,11 @@ void setup() {
 void loop() {
   if (!ensureWifi()) {
     delay(2000);
+    return;
+  }
+  if (!ensureTimeSynced()) {
+    // Try again next loop
+    delay(500);
     return;
   }
 
